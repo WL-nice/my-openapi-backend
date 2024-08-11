@@ -8,7 +8,9 @@ import com.wanglei.MyApi.model.domain.request.interfaceInfo.InterfaceInfoUpdateR
 import com.wanglei.MyApi.model.domain.vo.InterfaceInfoVO;
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.IOException;
 import java.net.http.HttpResponse;
 
 /**
@@ -61,4 +63,6 @@ public interface InterfaceInfoService extends IService<InterfaceInfo> {
     boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest);
 
     InterfaceInfoVO getInterfaceInfoVOById(long id);
+
+    void getSdk(HttpServletResponse response) throws IOException;
 }

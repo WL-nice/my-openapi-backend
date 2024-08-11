@@ -22,12 +22,17 @@ import com.wanglei.MyApicommon.model.UserInterfaceInfo;
 import com.wanglei.myapiclientsdk.utils.SignUtils;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -170,7 +175,7 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     @Override
     @Transactional
-    public boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest) {
+    public boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest)  {
         InterfaceInfo interfaceInfo = new InterfaceInfo();
         BeanUtils.copyProperties(interfaceInfoUpdateRequest, interfaceInfo);
         long id = interfaceInfoUpdateRequest.getId();
@@ -198,11 +203,37 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         // 防止缓存穿透
         if (interfaceInfo == null) {
             redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 60, TimeUnit.SECONDS);
-            return null;
+            throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
         }
         BeanUtils.copyProperties(interfaceInfo, interfaceInfoVO);
         redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 1, TimeUnit.DAYS);
         return interfaceInfoVO;
+    }
+
+    @Override
+    public void getSdk(HttpServletResponse response) throws IOException {
+        // 获取要下载的文件
+        org.springframework.core.io.Resource resource = new ClassPathResource("MyApi-client-sdk-0.0.1.jar");
+        InputStream inputStream = resource.getInputStream();
+
+        // 设置响应头
+        response.setContentType("application/octet-stream");
+        response.setHeader("Content-Disposition", "attachment; filename=MyApi-client-sdk-0.0.1.jar");
+
+        // 将文件内容写入响应
+        try (OutputStream out = response.getOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int length;
+            while ((length = inputStream.read(buffer)) > 0) {
+                out.write(buffer, 0, length);
+            }
+            out.flush();
+        } catch (IOException e) {
+            // 处理异常
+            e.printStackTrace();
+        } finally {
+            inputStream.close();
+        }
     }
 
     private Map<String, String> getHeaderMap(String body, String accessKey, String secretKet) {

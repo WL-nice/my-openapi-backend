@@ -2,13 +2,17 @@ package com.wanglei.myapigateway;
 
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import com.wanglei.MyApicommon.model.User;
+import com.wanglei.MyApicommon.model.constant.MqConstant;
+import com.wanglei.MyApicommon.model.dto.UserInterfaceInfoMessage;
 import com.wanglei.MyApicommon.service.InnerInterfaceInfoService;
 import com.wanglei.MyApicommon.service.InnerUserInterfaceInfoService;
 import com.wanglei.MyApicommon.service.InnerUserService;
 import com.wanglei.myapiclientsdk.utils.SignUtils;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.reactivestreams.Publisher;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -49,8 +53,11 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     @DubboReference
     private InnerInterfaceInfoService innerInterfaceInfoService;
 
-//    private static final String INTERFACE_HOST = "http://localhost:8090";
-    private static final String INTERFACE_HOST = "http://myapi-gateway.wlsite.icu";
+    @Resource
+    private RabbitTemplate rabbitTemplate;
+
+    private static final String INTERFACE_HOST = "http://localhost:8090";
+//    private static final String INTERFACE_HOST = "http://myapi-gateway.wlsite.icu";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -175,19 +182,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                             return super.writeWith(
                                     fluxBody.map(dataBuffer -> {
                                         // 调用次数+1
-//                                        try {
-//                                            innerUserInterfaceInfoService.invokeCount(userId, interfaceInfoId);
-//                                        } catch (Exception e) {
-//                                            log.error("invokeCount error", e);
-//                                            byte[] errorContent = ("无调用次数            "+e.getMessage()).getBytes(StandardCharsets.UTF_8);
-//                                            DataBuffer errorDataBuffer = bufferFactory.allocateBuffer(errorContent.length);
-//                                            errorDataBuffer.write(errorContent);
-//                                            DataBufferUtils.release(errorDataBuffer);
-//                                            DataBufferUtils.release(dataBuffer);
-//                                            // 打印日志
-//                                            log.error("响应异常信息：" + new String(errorContent, StandardCharsets.UTF_8));
-//                                            return bufferFactory.wrap(errorContent);
-//                                        }
+//
                                         byte[] content = new byte[dataBuffer.readableByteCount()];
                                         dataBuffer.read(content);
                                         DataBufferUtils.release(dataBuffer);//释放掉内存
@@ -199,6 +194,13 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                                         sb2.append(data);
                                         // 打印日志
                                         log.info("响应结果：" + data);
+                                        //调用失败回滚调用次数
+                                        if(!(originalResponse.getStatusCode()==HttpStatus.OK)){
+                                            log.error("接口调用异常"+data);
+                                            UserInterfaceInfoMessage vo = new UserInterfaceInfoMessage(userId, interfaceInfoId);
+                                            rabbitTemplate.convertAndSend(MqConstant.INVOKE_UNDO_QUEUE_NAME,vo);
+
+                                        }
                                         return bufferFactory.wrap(content);
                                     }));
                         } else {

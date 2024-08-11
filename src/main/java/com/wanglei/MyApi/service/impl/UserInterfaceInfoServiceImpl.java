@@ -66,6 +66,20 @@ public class UserInterfaceInfoServiceImpl extends ServiceImpl<UserInterfaceInfoM
         updateQueryWrapper.setSql("leftNum = leftNum - 1, totalNum = totalNum + 1");
         return this.update(updateQueryWrapper);
     }
+
+    @Override
+    @Transactional
+    public boolean recoverInvokeCount(Long userId, Long interfaceInfoId) {
+        if (userId<0 || interfaceInfoId<0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"用户或接口不存在");
+        }
+        UpdateWrapper<UserInterfaceInfo> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("userId",userId);
+        updateWrapper.eq("interfaceInfoId",interfaceInfoId);
+        updateWrapper.gt("leftNum",0);
+        updateWrapper.setSql("totalNum = totalNum -1,leftNum = leftNum+1");
+        return this.update(updateWrapper);
+    }
 }
 
 

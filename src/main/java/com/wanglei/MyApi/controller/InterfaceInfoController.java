@@ -13,21 +13,18 @@ import com.wanglei.MyApi.model.domain.request.interfaceInfo.InterfaceInfoQueryRe
 import com.wanglei.MyApi.model.domain.request.interfaceInfo.InterfaceInfoUpdateRequest;
 import com.wanglei.MyApi.model.domain.vo.InterfaceInfoVO;
 import com.wanglei.MyApi.service.InterfaceInfoService;
-import com.wanglei.MyApi.service.UserInterfaceInfoService;
 import com.wanglei.MyApi.service.UserService;
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import com.wanglei.MyApicommon.model.User;
+import com.wanglei.myapiclientsdk.client.MyApiClient;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Objects;
 
 @RestController
@@ -190,28 +187,7 @@ public class InterfaceInfoController {
 
     @GetMapping("/sdk")
     public void getSdk(HttpServletResponse response) throws IOException {
-        // 获取要下载的文件
-        org.springframework.core.io.Resource resource = new ClassPathResource("MyApi-client-sdk-0.0.1.jar");
-        InputStream inputStream = resource.getInputStream();
-
-        // 设置响应头
-        response.setContentType("application/octet-stream");
-        response.setHeader("Content-Disposition", "attachment; filename=MyApi-client-sdk-0.0.1.jar");
-
-        // 将文件内容写入响应
-        try (OutputStream out = response.getOutputStream()) {
-            byte[] buffer = new byte[4096];
-            int length;
-            while ((length = inputStream.read(buffer)) > 0) {
-                out.write(buffer, 0, length);
-            }
-            out.flush();
-        } catch (IOException e) {
-            // 处理异常
-            e.printStackTrace();
-        } finally {
-            inputStream.close();
-        }
+        interfaceInfoService.getSdk(response);
     }
 
 

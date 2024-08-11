@@ -20,7 +20,8 @@ public class MyApiClient {
     private final String accessKey;
     private final String secretKet;
 
-    private static final String GATEWAY_HOST = "http://localhost:8090";//网关端口
+//    private static final String GATEWAY_HOST = "http://localhost:8090";//网关端口
+    private static final String GATEWAY_HOST = "http://myapi-gateway.wlsite.icu";//网关端口
 
 
     public MyApiClient(String accessKey, String secretKet) {
@@ -58,7 +59,7 @@ public class MyApiClient {
     }
 
     public String getLoveWord() {
-        HttpResponse httpResponse = HttpRequest.get(GATEWAY_HOST + "/api/add/num")
+        HttpResponse httpResponse = HttpRequest.get(GATEWAY_HOST + "/api/loveWord")
                 .addHeaders(getHeaderMap(null))
                 .execute();
         return httpResponse.body();
