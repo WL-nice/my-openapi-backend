@@ -1,5 +1,6 @@
 package com.wanglei.myapiinterface.controller;
 
+import com.wanglei.myapiinterface.annotation.AuthCheck;
 import com.wanglei.myapiinterface.model.LoveWord;
 import com.wanglei.myapiinterface.service.LoveWordService;
 import com.wanglei.myapiinterface.utils.HeaderUtils;
@@ -22,10 +23,8 @@ public class LoveWordController {
     private RedisTemplate<String, Object> redisTemplate;
 
     @GetMapping("/loveWord")
+    @AuthCheck
     public String getLoveWord(HttpServletRequest request) {
-        if(!HeaderUtils.isHaveHeader(request)){
-            return "非法请求";
-        }
         Long count = 0L;
         String key = "interface:wordsCount";
         //从redis获取数据

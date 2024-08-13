@@ -25,6 +25,9 @@ spring:
             - Path=/api/**
           filters:
             - AddRequestHeader=source,muqiu
+  rabbitmq:
+    host: localhost
+    port: 5672
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
