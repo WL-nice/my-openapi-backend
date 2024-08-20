@@ -1,5 +1,6 @@
 package com.wanglei.myapigateway;
 
+import com.wanglei.MyApicommon.common.ErrorCode;
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import com.wanglei.MyApicommon.model.User;
 import com.wanglei.MyApicommon.model.constant.MqConstant;
@@ -8,6 +9,7 @@ import com.wanglei.MyApicommon.service.InnerInterfaceInfoService;
 import com.wanglei.MyApicommon.service.InnerUserInterfaceInfoService;
 import com.wanglei.MyApicommon.service.InnerUserService;
 import com.wanglei.myapiclientsdk.utils.SignUtils;
+import com.wanglei.myapigateway.exception.BusinessException;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboReference;
@@ -84,7 +86,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
             log.info("getInvokeUser error", e);
         }
         if (invokeUser == null) {
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NULL_ERROR,"请正确配置接口凭证");
         }
 
 
@@ -101,8 +103,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         String secretKey = invokeUser.getSecretKey();
         String serverSign = SignUtils.getSign(accessKey, secretKey);
         if (sign == null || !sign.equals(serverSign)) {
-            log.info("签名不一致");
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NO_AUTH,"非法请求");
         }
         // 请求的模拟接口是否存在
         InterfaceInfo interfaceInfo = null;
@@ -113,12 +114,10 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         }
 
         if (interfaceInfo == null) {
-            log.info("接口不存在");
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NULL_ERROR,"接口不存在");
         }
         if (interfaceInfo.getStatus() == 0) {
-            log.info("接口已关闭");
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NO_AUTH,"接口已关闭");
         }
         // 统计调用次数
         boolean result=false;
@@ -132,8 +131,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         }
 
         if (!result){
-            log.error("接口剩余次数不足");
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NO_AUTH,"接口剩余次数不足");
         }
 
         return handleResponse(exchange, chain, interfaceInfo.getId(), invokeUser.getId());

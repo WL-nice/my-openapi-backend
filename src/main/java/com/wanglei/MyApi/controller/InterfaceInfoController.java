@@ -25,7 +25,11 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static com.wanglei.MyApi.constant.UserConstant.ADMIN_ROLE;
 
 @RestController
 @RequestMapping("/InterfaceInfo")
@@ -132,6 +136,13 @@ public class InterfaceInfoController {
         }
         QueryWrapper<InterfaceInfo> queryWrapper = interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest);
         Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.page(new Page<>(current, size), queryWrapper);
+        User user = userService.getLoginUser(request);
+        // 仅管理员可查看所有接口
+        if (user == null || !user.getUserRole().equals(ADMIN_ROLE)) {
+            List<InterfaceInfo> interfaceInfoList = interfaceInfoPage.getRecords().stream()
+                    .filter(interfaceInfo1 -> interfaceInfo.getStatus().equals(InterfaceStatus.online.getCode())).collect(Collectors.toList());
+            interfaceInfoPage.setRecords(interfaceInfoList);
+        }
         return ResultUtils.success(interfaceInfoPage);
     }
 

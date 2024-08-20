@@ -5,6 +5,7 @@ import com.wanglei.MyApi.commmon.ErrorCode;
 import com.wanglei.MyApi.exception.BusinessException;
 import com.wanglei.MyApi.mapper.UserMapper;
 import com.wanglei.MyApi.service.UserService;
+import com.wanglei.MyApi.utils.RedissonLockUtil;
 import com.wanglei.MyApicommon.model.User;
 import com.wanglei.MyApicommon.service.InnerUserService;
 import jakarta.annotation.Resource;
@@ -20,6 +21,9 @@ public class InnerUserServiceImpl implements InnerUserService {
     private UserService userService;
 
     @Resource
+    private RedissonLockUtil redissonLockUtil;
+
+    @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
     public static final String GATEWAY_USER_KEY = "gatewayUser:";
@@ -29,16 +33,15 @@ public class InnerUserServiceImpl implements InnerUserService {
         if (StringUtils.isAnyBlank(accessKey)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User safeuser = null;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(GATEWAY_USER_KEY + accessKey))) {
-            safeuser = (User) redisTemplate.opsForValue().get(GATEWAY_USER_KEY + accessKey);
-        } else {
+            return (User) redisTemplate.opsForValue().get(GATEWAY_USER_KEY + accessKey);
+        }
+        return redissonLockUtil.redissonDistributedLocks("gateway:userKey:"+accessKey,()->{
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("accessKey", accessKey);
             User user = userService.getOne(queryWrapper);
-            safeuser = userService.getSafetUser(user);
-            redisTemplate.opsForValue().set(GATEWAY_USER_KEY + accessKey, safeuser, 1, TimeUnit.DAYS);
-        }
-        return safeuser;
+            redisTemplate.opsForValue().set(GATEWAY_USER_KEY + accessKey, user, 1, TimeUnit.DAYS);
+            return user;
+        });
     }
 }

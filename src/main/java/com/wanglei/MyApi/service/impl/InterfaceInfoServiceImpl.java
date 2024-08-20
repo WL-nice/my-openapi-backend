@@ -3,6 +3,7 @@ package com.wanglei.MyApi.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.http.HttpRequest;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wanglei.MyApi.commmon.ErrorCode;
 import com.wanglei.MyApi.constant.CommonConstant;
@@ -16,6 +17,7 @@ import com.wanglei.MyApi.model.domain.vo.InterfaceInfoVO;
 import com.wanglei.MyApi.service.InterfaceInfoService;
 import com.wanglei.MyApi.service.UserInterfaceInfoService;
 import com.wanglei.MyApi.service.UserService;
+import com.wanglei.MyApi.utils.RedissonLockUtil;
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import com.wanglei.MyApicommon.model.User;
 import com.wanglei.MyApicommon.model.UserInterfaceInfo;
@@ -54,6 +56,9 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Resource
+    private RedissonLockUtil redissonLockUtil;
 
     // 接口信息缓存key
     private static final String INTERFACE_KEY = "interfaceInfo:";
@@ -160,6 +165,7 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
     }
 
     @Override
+    @Transactional
     public boolean updateStatus(Long id, int status) {
         //判断是否存在
         InterfaceInfo oldInterfaceInfo = this.getById(id);
@@ -194,20 +200,22 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     @Override
     public InterfaceInfoVO getInterfaceInfoVOById(long id) {
-        InterfaceInfoVO interfaceInfoVO = new InterfaceInfoVO();
         if (Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + id))) {
-            interfaceInfoVO = (InterfaceInfoVO) redisTemplate.opsForValue().get(INTERFACE_KEY + id);
+            return (InterfaceInfoVO) redisTemplate.opsForValue().get(INTERFACE_KEY + id);
+        }
+        // 使用分布式锁，防止缓存击穿
+        return redissonLockUtil.redissonDistributedLocks("interfaceVO:id", () -> {
+            InterfaceInfoVO interfaceInfoVO = new InterfaceInfoVO();
+            InterfaceInfo interfaceInfo = this.getById(id);
+            // 防止缓存穿透
+            if (interfaceInfo == null) {
+                redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 60, TimeUnit.SECONDS);
+                throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
+            }
+            BeanUtils.copyProperties(interfaceInfo, interfaceInfoVO);
+            redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 1, TimeUnit.DAYS);
             return interfaceInfoVO;
-        }
-        InterfaceInfo interfaceInfo = this.getById(id);
-        // 防止缓存穿透
-        if (interfaceInfo == null) {
-            redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 60, TimeUnit.SECONDS);
-            throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
-        }
-        BeanUtils.copyProperties(interfaceInfo, interfaceInfoVO);
-        redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 1, TimeUnit.DAYS);
-        return interfaceInfoVO;
+        }, "获取失败");
     }
 
     @Override

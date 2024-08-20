@@ -1,4 +1,4 @@
-package com.wanglei.MyApi.commmon;
+package com.wanglei.MyApicommon.common;
 
 /**
  * 错误码
