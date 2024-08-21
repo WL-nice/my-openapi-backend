@@ -5,6 +5,7 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONUtil;
+import com.wanglei.myapiclientsdk.model.AIRequest;
 import com.wanglei.myapiclientsdk.model.AddNum;
 import com.wanglei.myapiclientsdk.model.User;
 import com.wanglei.myapiclientsdk.utils.SignUtils;
@@ -61,6 +62,15 @@ public class MyApiClient {
     public String getLoveWord() {
         HttpResponse httpResponse = HttpRequest.get(GATEWAY_HOST + "/api/loveWord")
                 .addHeaders(getHeaderMap(null))
+                .execute();
+        return httpResponse.body();
+    }
+
+    public String getAI(AIRequest aiRequest){
+        String json = JSONUtil.toJsonStr(aiRequest);
+        HttpResponse httpResponse = HttpRequest.post(GATEWAY_HOST + "/api/ai")
+                .addHeaders(getHeaderMap(json))
+                .body(json)
                 .execute();
         return httpResponse.body();
     }

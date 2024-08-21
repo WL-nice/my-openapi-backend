@@ -16,7 +16,7 @@ import static com.wanglei.MyApicommon.model.constant.MqConstant.INVOKE_UNDO_QUEU
 
 @Component
 @Slf4j
-public class mqListener {
+public class MqListener {
 
     @Resource
     private UserInterfaceInfoService userInterfaceInfoService;

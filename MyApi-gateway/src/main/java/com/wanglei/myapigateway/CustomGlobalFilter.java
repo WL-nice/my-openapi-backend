@@ -58,8 +58,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     @Resource
     private RabbitTemplate rabbitTemplate;
 
-    private static final String INTERFACE_HOST = "http://localhost:8090";
-//    private static final String INTERFACE_HOST = "http://myapi-gateway.wlsite.icu";
+//    private static final String INTERFACE_HOST = "http://localhost:8090";
+    private static final String INTERFACE_HOST = "http://myapi-gateway.wlsite.icu";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {

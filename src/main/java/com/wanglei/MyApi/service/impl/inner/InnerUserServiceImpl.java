@@ -3,7 +3,6 @@ package com.wanglei.MyApi.service.impl.inner;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.wanglei.MyApi.commmon.ErrorCode;
 import com.wanglei.MyApi.exception.BusinessException;
-import com.wanglei.MyApi.mapper.UserMapper;
 import com.wanglei.MyApi.service.UserService;
 import com.wanglei.MyApi.utils.RedissonLockUtil;
 import com.wanglei.MyApicommon.model.User;
@@ -14,6 +13,9 @@ import org.apache.dubbo.config.annotation.DubboService;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.concurrent.TimeUnit;
+
+import static com.wanglei.MyApi.constant.RedisKey.GATEWAY_USER_KEY;
+import static com.wanglei.MyApi.constant.RedisKey.GATEWAY_USER_LOCK;
 
 @DubboService
 public class InnerUserServiceImpl implements InnerUserService {
@@ -26,7 +28,6 @@ public class InnerUserServiceImpl implements InnerUserService {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
-    public static final String GATEWAY_USER_KEY = "gatewayUser:";
 
     @Override
     public User getInvokeUser(String accessKey) {
@@ -36,11 +37,16 @@ public class InnerUserServiceImpl implements InnerUserService {
         if (Boolean.TRUE.equals(redisTemplate.hasKey(GATEWAY_USER_KEY + accessKey))) {
             return (User) redisTemplate.opsForValue().get(GATEWAY_USER_KEY + accessKey);
         }
-        return redissonLockUtil.redissonDistributedLocks("gateway:userKey:"+accessKey,()->{
+        return redissonLockUtil.redissonDistributedLocks(GATEWAY_USER_LOCK + accessKey, () -> {
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("accessKey", accessKey);
             User user = userService.getOne(queryWrapper);
-            redisTemplate.opsForValue().set(GATEWAY_USER_KEY + accessKey, user, 1, TimeUnit.DAYS);
+            if(user == null){
+                redisTemplate.opsForValue().set(GATEWAY_USER_KEY + accessKey, new User(), 1, TimeUnit.MINUTES);
+            }else{
+                redisTemplate.opsForValue().set(GATEWAY_USER_KEY + accessKey, user, 1, TimeUnit.DAYS);
+            }
+
             return user;
         });
     }

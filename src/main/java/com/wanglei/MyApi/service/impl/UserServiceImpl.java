@@ -27,8 +27,10 @@ import org.springframework.util.DigestUtils;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.wanglei.MyApi.constant.RedisKey.GATEWAY_USER_KEY;
 import static com.wanglei.MyApi.constant.UserConstant.ADMIN_ROLE;
 import static com.wanglei.MyApi.constant.UserConstant.USER_LOGIN_STATE;
+
 
 /**
  * @author master
@@ -183,6 +185,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetUser.setUserRole(user.getUserRole());
         safetUser.setUserStatus(user.getUserStatus());
         safetUser.setCreateTime(user.getCreateTime());
+        safetUser.setAccessKey(user.getAccessKey());
         return safetUser;
 
     }
@@ -275,6 +278,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         boolean result = this.updateById(user);
         if (!result) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成失败");
+        }
+        //删除缓存
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(GATEWAY_USER_KEY+user.getAccessKey()))){
+            redisTemplate.delete(GATEWAY_USER_KEY+user.getAccessKey());
         }
         return new UserAkSk(newAccessKey, newSecretKey);
     }

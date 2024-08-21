@@ -3,10 +3,10 @@ package com.wanglei.MyApi.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.http.HttpRequest;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wanglei.MyApi.commmon.ErrorCode;
 import com.wanglei.MyApi.constant.CommonConstant;
+import com.wanglei.MyApi.constant.RedisKey;
 import com.wanglei.MyApi.exception.BusinessException;
 import com.wanglei.MyApi.mapper.InterfaceInfoMapper;
 import com.wanglei.MyApi.model.domain.enums.InterfaceStatus;
@@ -15,12 +15,10 @@ import com.wanglei.MyApi.model.domain.request.interfaceInfo.InterfaceInfoQueryRe
 import com.wanglei.MyApi.model.domain.request.interfaceInfo.InterfaceInfoUpdateRequest;
 import com.wanglei.MyApi.model.domain.vo.InterfaceInfoVO;
 import com.wanglei.MyApi.service.InterfaceInfoService;
-import com.wanglei.MyApi.service.UserInterfaceInfoService;
 import com.wanglei.MyApi.service.UserService;
 import com.wanglei.MyApi.utils.RedissonLockUtil;
 import com.wanglei.MyApicommon.model.InterfaceInfo;
 import com.wanglei.MyApicommon.model.User;
-import com.wanglei.MyApicommon.model.UserInterfaceInfo;
 import com.wanglei.myapiclientsdk.utils.SignUtils;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,6 +37,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
+
+
 /**
  * @author admin
  * @description 针对表【interface_info(接口信息)】的数据库操作Service实现
@@ -52,16 +53,11 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
     private UserService userService;
 
     @Resource
-    private UserInterfaceInfoService userInterfaceInfoService;
-
-    @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
     @Resource
     private RedissonLockUtil redissonLockUtil;
 
-    // 接口信息缓存key
-    private static final String INTERFACE_KEY = "interfaceInfo:";
 
     @Override
     public void validInterfaceInfo(InterfaceInfo interfaceInfo, boolean add) {
@@ -125,7 +121,12 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         // 根据请求信息获取接口信息
         Long id = interfaceInfoInvokeRequest.getId();
         String userRequestParams = interfaceInfoInvokeRequest.getUserRequestParams();
-        InterfaceInfo oldInterfaceInfo = this.getById(id);
+        InterfaceInfo oldInterfaceInfo = null;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKey.INTERFACE_KEY + id))) {
+            oldInterfaceInfo = (InterfaceInfo) redisTemplate.opsForValue().get(RedisKey.INTERFACE_KEY + id);
+        } else {
+            oldInterfaceInfo = this.getById(id);
+        }
         // 接口信息存在性校验
         if (oldInterfaceInfo == null) {
             throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
@@ -133,15 +134,6 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         if (oldInterfaceInfo.getStatus().equals(InterfaceStatus.offline.getCode())) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口已下线");
         }
-        QueryWrapper<UserInterfaceInfo> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("userId", loginUser.getId());
-        queryWrapper.eq("interfaceInfoId", id);
-        UserInterfaceInfo userInterfaceInfo = userInterfaceInfoService.getOne(queryWrapper);
-        if (userInterfaceInfo != null && userInterfaceInfo.getLeftNum() <= 0) {
-            throw new BusinessException(ErrorCode.NO_INVOKE_COUNT);
-
-        }
-
         User usert = userService.getById(loginUser.getId());
         String accessKey = usert.getAccessKey();
         String secretKey = usert.getSecretKey();
@@ -181,7 +173,7 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     @Override
     @Transactional
-    public boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest)  {
+    public boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest) {
         InterfaceInfo interfaceInfo = new InterfaceInfo();
         BeanUtils.copyProperties(interfaceInfoUpdateRequest, interfaceInfo);
         long id = interfaceInfoUpdateRequest.getId();
@@ -191,17 +183,20 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
             throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
         }
         boolean result = this.updateById(interfaceInfo);
-        // 判断缓存是否存在
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + id))) {
-            redisTemplate.delete(INTERFACE_KEY + id);
+        // 判断缓存是否存在，存在则删除缓存
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKey.INTERFACE_KEY + id))) {
+            redisTemplate.delete(RedisKey.INTERFACE_KEY + id);
+        }
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + oldInterfaceInfo.getUrl()))) {
+            redisTemplate.delete(INTERFACE_KEY + oldInterfaceInfo.getUrl());
         }
         return result;
     }
 
     @Override
     public InterfaceInfoVO getInterfaceInfoVOById(long id) {
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + id))) {
-            return (InterfaceInfoVO) redisTemplate.opsForValue().get(INTERFACE_KEY + id);
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKey.INTERFACE_KEY + id))) {
+            return (InterfaceInfoVO) redisTemplate.opsForValue().get(RedisKey.INTERFACE_KEY + id);
         }
         // 使用分布式锁，防止缓存击穿
         return redissonLockUtil.redissonDistributedLocks("interfaceVO:id", () -> {
@@ -209,11 +204,11 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
             InterfaceInfo interfaceInfo = this.getById(id);
             // 防止缓存穿透
             if (interfaceInfo == null) {
-                redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 60, TimeUnit.SECONDS);
+                redisTemplate.opsForValue().set(RedisKey.INTERFACE_KEY + id, interfaceInfoVO, 60, TimeUnit.SECONDS);
                 throw new BusinessException(ErrorCode.NULL_ERROR, "未发现接口");
             }
             BeanUtils.copyProperties(interfaceInfo, interfaceInfoVO);
-            redisTemplate.opsForValue().set(INTERFACE_KEY + id, interfaceInfoVO, 1, TimeUnit.DAYS);
+            redisTemplate.opsForValue().set(RedisKey.INTERFACE_KEY + id, interfaceInfoVO, 1, TimeUnit.DAYS);
             return interfaceInfoVO;
         }, "获取失败");
     }

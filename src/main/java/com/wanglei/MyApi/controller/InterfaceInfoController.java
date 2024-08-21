@@ -22,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.wanglei.MyApi.constant.UserConstant.ADMIN_ROLE;
+import static org.apache.dubbo.common.constants.CommonConstants.INTERFACE_KEY;
 
 @RestController
 @RequestMapping("/InterfaceInfo")
@@ -42,6 +44,9 @@ public class InterfaceInfoController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     // region 增删改查
 
@@ -88,6 +93,14 @@ public class InterfaceInfoController {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
         boolean b = interfaceInfoService.removeById(id);
+        // 判断缓存是否存在,存在则删除缓存
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + id))){
+            redisTemplate.delete(INTERFACE_KEY + id);
+        }
+        if(Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + oldInterfaceInfo.getUrl()))){
+            redisTemplate.delete(INTERFACE_KEY + oldInterfaceInfo.getUrl());
+        }
+
         return ResultUtils.success(b);
     }
 
@@ -102,6 +115,7 @@ public class InterfaceInfoController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean result = interfaceInfoService.updateInterfaceInfo(interfaceInfoUpdateRequest);
+
         return ResultUtils.success(result);
     }
 

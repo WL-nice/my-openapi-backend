@@ -62,7 +62,17 @@ public interface InterfaceInfoService extends IService<InterfaceInfo> {
      */
     boolean updateInterfaceInfo(InterfaceInfoUpdateRequest interfaceInfoUpdateRequest);
 
+    /**
+     * 获取接口信息
+     * @param id
+     * @return
+     */
     InterfaceInfoVO getInterfaceInfoVOById(long id);
 
+    /**
+     * 获取sdk
+     * @param response
+     * @throws IOException
+     */
     void getSdk(HttpServletResponse response) throws IOException;
 }
