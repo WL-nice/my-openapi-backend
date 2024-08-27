@@ -200,6 +200,10 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         }
         // 使用分布式锁，防止缓存击穿
         return redissonLockUtil.redissonDistributedLocks("interfaceVO:id", () -> {
+            //双重判定锁
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(RedisKey.INTERFACE_KEY + id))) {
+                return (InterfaceInfoVO) redisTemplate.opsForValue().get(RedisKey.INTERFACE_KEY + id);
+            }
             InterfaceInfoVO interfaceInfoVO = new InterfaceInfoVO();
             InterfaceInfo interfaceInfo = this.getById(id);
             // 防止缓存穿透

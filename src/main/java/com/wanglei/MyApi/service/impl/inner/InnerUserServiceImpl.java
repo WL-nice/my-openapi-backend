@@ -38,6 +38,10 @@ public class InnerUserServiceImpl implements InnerUserService {
             return (User) redisTemplate.opsForValue().get(GATEWAY_USER_KEY + accessKey);
         }
         return redissonLockUtil.redissonDistributedLocks(GATEWAY_USER_LOCK + accessKey, () -> {
+            // 双重判定锁
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(GATEWAY_USER_KEY + accessKey))) {
+                return (User) redisTemplate.opsForValue().get(GATEWAY_USER_KEY + accessKey);
+            }
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("accessKey", accessKey);
             User user = userService.getOne(queryWrapper);

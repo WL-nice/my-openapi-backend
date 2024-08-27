@@ -39,6 +39,9 @@ public class InnerInterfaceInfoServiceImpl implements InnerInterfaceInfoService 
             return (InterfaceInfo) redisTemplate.opsForValue().get(INTERFACE_KEY + url);
         }
         return redissonLockUtil.redissonDistributedLocks(GATEWAY_INTERFACE_LOCK + url, () -> {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(INTERFACE_KEY + url))) {
+                return (InterfaceInfo) redisTemplate.opsForValue().get(INTERFACE_KEY + url);
+            }
             QueryWrapper<InterfaceInfo> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("url", url);
             queryWrapper.eq("method", method);
