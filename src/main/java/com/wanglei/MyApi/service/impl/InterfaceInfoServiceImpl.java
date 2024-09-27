@@ -245,11 +245,12 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     private Map<String, String> getHeaderMap(String body, String accessKey, String secretKet) {
         Map<String, String> hashMap = new HashMap<>();
+        String timestamp = String.valueOf(System.currentTimeMillis() / 1000);
         hashMap.put("nonce", RandomUtil.randomNumbers(5));
         hashMap.put("body", body);
+        hashMap.put("timestamp", timestamp);
         hashMap.put("accessKey", accessKey);
-        hashMap.put("timestamp", String.valueOf(System.currentTimeMillis() / 1000));
-        hashMap.put("sign", SignUtils.getSign(accessKey, secretKet));
+        hashMap.put("sign", SignUtils.getSign(timestamp,accessKey, secretKet));
         return hashMap;
     }
 

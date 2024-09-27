@@ -92,16 +92,12 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
         // 时间和当前时间不能超过 5 分钟
         if (timestamp == null || Math.abs(Long.parseLong(timestamp) - System.currentTimeMillis() / 1000) > 60 * 5) {
-            return handleNoAuth(response);
+            throw new BusinessException(ErrorCode.NO_AUTH,"非法请求");
         }
-//        Long currentTime = System.currentTimeMillis() / 1000;
-//        final Long FIVE_MINUTES = 60 * 5L;
-//        if ((currentTime - Long.parseLong(timestamp)) >= FIVE_MINUTES) {
-//            return handleNoAuth(response);
-//        }
+
         //从数据库空中获取secretKey
         String secretKey = invokeUser.getSecretKey();
-        String serverSign = SignUtils.getSign(accessKey, secretKey);
+        String serverSign = SignUtils.getSign(timestamp,accessKey, secretKey);
         if (sign == null || !sign.equals(serverSign)) {
             throw new BusinessException(ErrorCode.NO_AUTH,"非法请求");
         }

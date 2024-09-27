@@ -8,9 +8,9 @@ import cn.hutool.crypto.digest.Digester;
  */
 public class SignUtils {
 
-    public static String getSign(String body, String secretKey) {
+    public static String getSign(String timestamp,String accessKey, String secretKey) {
         Digester md5 = new Digester(DigestAlgorithm.MD5);
-        String content = body + "_" + secretKey;
+        String content = accessKey + "_" + secretKey+timestamp;
         return md5.digestHex(content);
     }
 }

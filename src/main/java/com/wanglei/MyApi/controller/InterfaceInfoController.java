@@ -141,8 +141,6 @@ public class InterfaceInfoController {
         if (interfaceInfoQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        InterfaceInfo interfaceInfo = new InterfaceInfo();
-        BeanUtils.copyProperties(interfaceInfoQueryRequest, interfaceInfo);
         long current = interfaceInfoQueryRequest.getCurrent();
         long size = interfaceInfoQueryRequest.getPageSize();
         if (size > 50) {
@@ -154,7 +152,7 @@ public class InterfaceInfoController {
         // 仅管理员可查看所有接口
         if (user == null || !user.getUserRole().equals(ADMIN_ROLE)) {
             List<InterfaceInfo> interfaceInfoList = interfaceInfoPage.getRecords().stream()
-                    .filter(interfaceInfo1 -> interfaceInfo.getStatus().equals(InterfaceStatus.online.getCode())).collect(Collectors.toList());
+                    .filter(interfaceInfo1 -> interfaceInfo1.getStatus().equals(InterfaceStatus.online.getCode())).collect(Collectors.toList());
             interfaceInfoPage.setRecords(interfaceInfoList);
         }
         return ResultUtils.success(interfaceInfoPage);
